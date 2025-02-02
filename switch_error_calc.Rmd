@@ -1,0 +1,164 @@
+---
+title: "switch_error_calc"
+author: "Sam Bogan"
+date: "2024-12-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(Rmisc)
+```
+
+Apply switch error test to data from P gunnellus alignment to hap-specific AFP arrays
+
+```{r}
+
+pgunn_data <- read_tsv("~/Documents/switch_err_test/p_gunnellus/soft_clip_metrics.tsv")
+
+# Generate likelihood function
+likelihood <- function(P_s, S, R) {
+  exp(a * P_s + b * S + c * R)
+}
+
+# Calc probability across regions with Bayes theorem
+pgunn_data$index <- (pgunn_data$P_s * (1 + pgunn_data$R)^2 * pgunn_data$S)/1e8
+
+pgunn_data$region <- pgunn_data$start + .5*(pgunn_data$end - pgunn_data$start)
+
+# Plot posterior probabilities
+highlight_df <- data.frame(start = c(3496680/1e6, 1111749/1e6),
+                           end = c(3601334/1e6, 1185208/1e6),
+                           chromosome = c("h2tg000025l", "h1tg000157l"))
+
+ggplot(pgunn_data, aes(x = region/1e6, y = index)) +
+  geom_rect(data = highlight_df,
+            aes(NULL, NULL, xmin = start, xmax = end), 
+            ymin = -Inf, ymax = Inf, fill = "skyblue") +
+  geom_hline(yintercept = 10, lty = 2, color = "red") +
+  geom_path(color = "black", size = .5) +
+  labs(
+    x = "Mb",
+    y = "Switch error index"
+  ) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  facet_grid(chromosome~.)
+
+```
+
+L dearborni
+
+```{r}
+
+ldear_data <- read_tsv("~/Documents/switch_err_test/l_dearborni/soft_clip_metrics.tsv")
+
+# Calc probability across regions with Bayes theorem
+ldear_data$index <- (ldear_data$P_s * (1 + ldear_data$R)^2 * ldear_data$S)/1e8
+
+ldear_data$region <- ldear_data$start + .5*(ldear_data$end - ldear_data$start)
+
+# Plot posterior probabilities
+ldear_df <- data.frame(start = c(126808/1e6, 2474178/1e6),
+                           end = c(95598/1e6, 3333132/1e6),
+                           chromosome = c("h2tg000034l", "h1tg000019l"))
+
+ggplot(ldear_data, aes(x = region/1e6, y = index)) +
+  geom_rect(data = ldear_df,
+            aes(NULL, NULL, xmin = start, xmax = end), 
+            ymin = -Inf, ymax = Inf, fill = "skyblue") +
+  geom_hline(yintercept = 10, lty = 2, color = "red") +
+  geom_path(color = "black", size = .5) +
+  labs(
+    x = "Mb",
+    y = "Switch error index"
+  ) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  facet_grid(chromosome~.)
+
+# Looks like there is a high index in the hap1 AFP array: 2700000-2709999
+filter(ldear_data, index == max(ldear_data$index))
+
+```
+
+Z americanus
+
+```{r}
+
+zam_data <- read_tsv("~/Documents/switch_err_test/z_americanus/soft_clip_metrics.tsv")
+
+# Calc probability across regions with Bayes theorem
+zam_data$index <- (zam_data$P_s * (1 + zam_data$R)^2 * zam_data$S)/1e8
+
+zam_data$region <- zam_data$start + .5*(zam_data$end - zam_data$start)
+
+# Plot posterior probabilities
+zam_df <- data.frame(start = c(1273095/1e6, 245307/1e6, 
+                               673045/1e6, 885428/1e6),
+                           end = c(1371768/1e6, 248276/1e6, 
+                                   724061/1e6, 895867/1e6),
+                           chromosome = c("h1tg000092l", "h1tg000766l",
+                                          "h2tg000104l", "h2tg000180l"))
+
+ggplot(filter(zam_data, chromosome %in% c("h1tg000092l", "h2tg000104l")), 
+       aes(x = region/1e6, y = index)) +
+  geom_rect(data = filter(zam_df, chromosome %in% c("h1tg000092l", "h2tg000104l")),
+            aes(NULL, NULL, xmin = start, xmax = end), 
+            ymin = -Inf, ymax = Inf, fill = "skyblue") +
+  geom_hline(yintercept = 10, lty = 2, color = "red") +
+  geom_path(color = "black", size = .5) +
+  labs(
+    x = "Mb",
+    y = "Switch error index"
+  ) +
+  theme_classic() +
+  theme(strip.background = element_blank()) +
+  facet_grid(chromosome~.) +
+  labs(title = expression(italic("Z. americanus")))
+
+# Looks like there is a high index in the hap1 AFP array: 2700000-2709999
+filter(zam_data, index == max(zam_data$index))
+
+```
+
+L dearborni gfa parse
+
+```{r}
+
+# Read in data frames
+ld_hap1 <- read.csv("~/Documents/GitHub/haplo_afp/gfa_parse_test/l_dearborni/ldear_hap1_all.csv")
+
+ld_hap1$hap <- "hap1"
+
+ld_hap2 <- read.csv("~/Documents/GitHub/haplo_afp/gfa_parse_test/l_dearborni/ldear_hap2_all.csv")
+
+# Combine
+ld_hap2$hap <- "hap2"
+
+ld_parse_df <- rbind(ld_hap1, ld_hap2)
+
+ld_parse_df <- na.omit(ld_parse_df)
+
+# Plot
+ggplot(ld_parse_df,
+       aes(x = AFP_num, group = hap, fill = hap)) +
+  geom_histogram(position = "stack") +
+  theme_classic() +
+  labs(y = "n possible assemblies", x = "Haplotype copy number")
+
+# Diff between hap1 and upper 95% CI of hap2
+ldear_sum <- summarySE(measurevar = "AFP_num",
+                       groupvars = c("hap"),
+                       data = ld_parse_df)
+
+max(filter(ld_parse_df, hap == "hap1")$AFP_num) - 
+  (mean(filter(ld_parse_df, hap == "hap2")$AFP_num) + 
+     c(-1, 1) * qt(0.975, length(filter(ld_parse_df, hap == "hap2")$AFP_num) - 1) * 
+     sd(filter(ld_parse_df, hap == "hap2")$AFP_num) / 
+     sqrt(length(filter(ld_parse_df, hap == "hap2")$AFP_num)))[2]
+
+```
+
