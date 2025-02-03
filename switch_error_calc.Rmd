@@ -10,13 +10,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(Rmisc)
+library(ggpubr)
+
 ```
 
 Apply switch error test to data from P gunnellus alignment to hap-specific AFP arrays
 
 ```{r}
 
-pgunn_data <- read_tsv("~/Documents/switch_err_test/p_gunnellus/soft_clip_metrics.tsv")
+pgunn_data <- read_tsv("~/Documents/GitHub/haplo_afp/switch_err_test/p_gunnellus/soft_clip_metrics.tsv")
 
 # Generate likelihood function
 likelihood <- function(P_s, S, R) {
@@ -33,19 +35,26 @@ highlight_df <- data.frame(start = c(3496680/1e6, 1111749/1e6),
                            end = c(3601334/1e6, 1185208/1e6),
                            chromosome = c("h2tg000025l", "h1tg000157l"))
 
-ggplot(pgunn_data, aes(x = region/1e6, y = index)) +
-  geom_rect(data = highlight_df,
+pgunn_swerr_fig <- ggplot(filter(pgunn_data, chromosome == "h2tg000025l"), aes(x = region/1e6, y = index)) +
+  geom_rect(data = filter(highlight_df, chromosome == "h2tg000025l"),
             aes(NULL, NULL, xmin = start, xmax = end), 
             ymin = -Inf, ymax = Inf, fill = "skyblue") +
   geom_hline(yintercept = 10, lty = 2, color = "red") +
   geom_path(color = "black", size = .5) +
-  labs(
+  labs(title = expression(italic("P. gunnellus")~"ancestral AFP array"),
     x = "Mb",
     y = "Switch error index"
   ) +
-  theme_classic() +
-  theme(strip.background = element_blank()) +
-  facet_grid(chromosome~.)
+  theme_classic(base_size = 20) +
+  ylim(0,10) +
+  theme(strip.background = element_blank())
+
+# Export figure
+ggsave(pgunn_swerr_fig,
+       units = "in", width = 6, height = 4, 
+       filename = "~/Documents/GitHub/haplo_afp/Figures/pgunn_swerr_fig.png",
+       bg = "white")
+
 
 ```
 
@@ -53,7 +62,7 @@ L dearborni
 
 ```{r}
 
-ldear_data <- read_tsv("~/Documents/switch_err_test/l_dearborni/soft_clip_metrics.tsv")
+ldear_data <- read_tsv("~/Documents/GitHub/haplo_afp/switch_err_test/l_dearborni/soft_clip_metrics.tsv")
 
 # Calc probability across regions with Bayes theorem
 ldear_data$index <- (ldear_data$P_s * (1 + ldear_data$R)^2 * ldear_data$S)/1e8
@@ -65,19 +74,25 @@ ldear_df <- data.frame(start = c(126808/1e6, 2474178/1e6),
                            end = c(95598/1e6, 3333132/1e6),
                            chromosome = c("h2tg000034l", "h1tg000019l"))
 
-ggplot(ldear_data, aes(x = region/1e6, y = index)) +
-  geom_rect(data = ldear_df,
+ldear_swerr_fig <- ggplot(filter(ldear_data, chromosome == "h1tg000019l"), aes(x = region/1e6, y = index)) +
+  geom_rect(data = filter(ldear_df, , chromosome == "h1tg000019l"),
             aes(NULL, NULL, xmin = start, xmax = end), 
             ymin = -Inf, ymax = Inf, fill = "skyblue") +
   geom_hline(yintercept = 10, lty = 2, color = "red") +
   geom_path(color = "black", size = .5) +
-  labs(
+  labs(title = expression(italic("L. dearborni")~"ancestral AFP array"), 
     x = "Mb",
     y = "Switch error index"
   ) +
-  theme_classic() +
-  theme(strip.background = element_blank()) +
-  facet_grid(chromosome~.)
+  theme_classic(base_size = 20) +
+  ylim(0,10) +
+  theme(strip.background = element_blank())
+
+# Export figure
+ggsave(ldear_swerr_fig,
+       units = "in", width = 6, height = 4, 
+       filename = "~/Documents/GitHub/haplo_afp/Figures/ldear_swerr_fig.png",
+       bg = "white")
 
 # Looks like there is a high index in the hap1 AFP array: 2700000-2709999
 filter(ldear_data, index == max(ldear_data$index))
@@ -143,22 +158,28 @@ ld_parse_df <- rbind(ld_hap1, ld_hap2)
 ld_parse_df <- na.omit(ld_parse_df)
 
 # Plot
-ggplot(ld_parse_df,
+ldear_gfa_fig <- ggplot(ld_parse_df,
        aes(x = AFP_num, group = hap, fill = hap)) +
-  geom_histogram(position = "stack") +
-  theme_classic() +
-  labs(y = "n possible assemblies", x = "Haplotype copy number")
+  geom_histogram(position = "stack", binwidth = 1, color = "black") +
+  theme_classic(base_size = 20) +
+  theme(legend.position = c(.8,.8)) +
+  labs(title = expression(italic("L. dearborni")~"ancestral AFP array"),
+       y = "n possible assemblies", x = "Haplotype AFP copy number",
+       fill = "")
 
-# Diff between hap1 and upper 95% CI of hap2
-ldear_sum <- summarySE(measurevar = "AFP_num",
-                       groupvars = c("hap"),
-                       data = ld_parse_df)
+# Visualize min max and mean
+ld_parse_df %>% 
+  group_by(hap)  %>%
+  mutate(min = min(AFP_num),
+         max = max(AFP_num),
+         mean = mean(AFP_num))
 
-max(filter(ld_parse_df, hap == "hap1")$AFP_num) - 
-  (mean(filter(ld_parse_df, hap == "hap2")$AFP_num) + 
-     c(-1, 1) * qt(0.975, length(filter(ld_parse_df, hap == "hap2")$AFP_num) - 1) * 
-     sd(filter(ld_parse_df, hap == "hap2")$AFP_num) / 
-     sqrt(length(filter(ld_parse_df, hap == "hap2")$AFP_num)))[2]
+
+# Export figure
+ggsave(ldear_gfa_fig,
+       units = "in", width = 12, height = 6, 
+       filename = "~/Documents/GitHub/haplo_afp/Figures/ldear_gfa_fig.png",
+       bg = "white")
 
 ```
 
