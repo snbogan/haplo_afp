@@ -183,3 +183,38 @@ ggsave(ldear_gfa_fig,
 
 ```
 
+Create placeholder tree for Owen
+
+```{r}
+
+# Load fishtree
+library(fishtree)
+library(ggtree)
+
+hap_afp_tree <- fishtree_phylogeny(
+  c("Lycodichthys dearborni", "Zoarces americanus", "Leptoclinus maculatus",
+    "Pholis gunnellus", "Cebidichthys violaceus", "Anarhichas minor", "Anarhichas lupus"),
+  type = c("chronogram"))
+
+# Get the root age (total tree height)
+tree_age <- max(ggtree(hap_afp_tree)$data$x)
+
+# Format species names
+hap_afp_tree$tip.label <- gsub("_", " ", hap_afp_tree$tip.label)
+hap_afp_tree$tip.label <- paste0("italic('", hap_afp_tree$tip.label, "')")
+
+# Plot tree to see if it looks accurate
+ggtree(hap_afp_tree) + 
+  geom_tiplab(parse = TRUE) + 
+  theme_tree2() +
+  labs(x = "Mya") +
+  scale_x_continuous(
+    limits = c(-2, tree_age + 10),  # Extends left for labels, ends at 0
+    breaks = tree_age - c(40, 30, 20, 10, 0),  
+    labels = c(40, 30, 20, 10, 0),
+    expand = c(0, 0)  # Ensures axis line ends at 0 without extra space
+  )
+
+
+```
+
